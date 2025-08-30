@@ -29,10 +29,6 @@ export class UserService {
             authProvider: 'local',
             isVerified: false,
         });
-        // console.log('User object after creation:', newUser);
-        // const result = await this.usersRepository.save(newUser, { reload: true });
-        // console.log(result);
-        // return result;
         return this.usersRepository.save(newUser, { reload: true });;
     }
 }

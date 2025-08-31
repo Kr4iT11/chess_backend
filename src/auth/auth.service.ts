@@ -104,4 +104,13 @@ export class AuthService {
         }
         return null;
     }
+
+    async validateRefreshToken(userId: number, refreshToken: string) {
+        const user = await this.userService.findById(userId);
+        if (!user || !user.hashed_refresh_token) {
+            return null;
+        }
+        const isValid = await bcrypt.compare(refreshToken, user.hashed_refresh_token);
+        return isValid ? user : null;
+    }
 }

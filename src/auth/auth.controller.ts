@@ -5,9 +5,9 @@ import { LoginDto } from './dto/login.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import express from 'express';
-import { JwtAuthGuard } from 'src/common/guards/jwt-auth.guard';
-import { JwtRefreshStrategy } from './guards/jwt-refresh.strategy';
-import { JwtRefreshGuard } from 'src/common/guards/jwt-refresh.guard';
+import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { JwtRefreshGuard } from 'src/auth/guards/jwt-refresh.guard';
 import { JwtPayload } from 'src/types/jwt-payload.type';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 @ApiTags('auth') // Groups endpoints under the "auth" tag in Swagger
@@ -75,35 +75,11 @@ export class AuthController {
     @ApiOperation({ summary: 'Refresh tokens' })
     @ApiResponse({ status: 200, description: 'New access token generated.' })
     async refreshTokens(
-        @Body() body: RefreshTokenDto,
-        @Res() req: express.Request,
+        @Req() req,
         @Res({ passthrough: true }) res: express.Response,
     ) {
-        console.log('body',body);
-        // 1. Try to get from body (Swagger/testing)
-        let id = body.id;
-        let refreshToken = body.refreshToken;
-
-        // 2. Fallback to req.user + cookie (production)
-        if (!id && req.user) {
-            // if JwtStrategy attaches { sub, username }
-            id = (req.user as any).sub ?? (req.user as any).id;
-        }
-
-        if (!refreshToken) {
-            refreshToken = req.cookies['refresh_token']; // from cookie
-        }
-
-        if (!id || !refreshToken) {
-            throw new Error('Missing refresh token or user id');
-        }
-
-        const { accessToken, refreshToken: newRefreshToken } =
-            await this._authService.refreshTokens(id, refreshToken);
-
-        this.setRefreshTokenCookie(res, newRefreshToken);
-
-        return { accessToken };
+        const user = req.user;
+        return this._authService.refreshTokens(user.id, req.body.refreshToken);
 
     }
 }

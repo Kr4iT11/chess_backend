@@ -79,6 +79,7 @@ export class AuthController {
         @Res() req: express.Request,
         @Res({ passthrough: true }) res: express.Response,
     ) {
+        console.log('body',body);
         // 1. Try to get from body (Swagger/testing)
         let id = body.id;
         let refreshToken = body.refreshToken;

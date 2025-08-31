@@ -1,3 +1,4 @@
+import { Exclude } from "class-transformer";
 import { Column, Entity, Index, PrimaryGeneratedColumn } from "typeorm";
 
 @Index("email", ["email"], { unique: true })
@@ -46,4 +47,8 @@ export class User {
         default: () => "CURRENT_TIMESTAMP",
     })
     updatedAt: Date;
+
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    @Exclude() // Always exclude sensitive fields from responses
+    public hashed_refresh_token: string | null;
 }

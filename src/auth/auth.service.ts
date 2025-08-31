@@ -1,62 +1,107 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from 'src/user/user.service';
+import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from './dto/create-user.dto';
+import { User } from 'src/user/user.entity';
 
 @Injectable()
 export class AuthService {
-    constructor(private readonly _userService: UserService, private readonly _jwtService: JwtService) {
+    constructor(
+        private userService: UserService,
+        private jwtService: JwtService,
+        private configService: ConfigService,
+    ) { }
 
+    /**
+     * Generates Access and Refresh tokens for a user.
+     */
+    private async getTokens(user: User) {
+        const payload = { username: user.username, sub: user.id };
+
+        const [accessToken, refreshToken] = await Promise.all([
+            // Access Token
+            this.jwtService.signAsync(payload, {
+                secret: this.configService.get<string>('JWT_SECRET'),
+                expiresIn: this.configService.get<string>('JWT_EXPIRATION_TIME'),
+            }),
+            // Refresh Token
+            this.jwtService.signAsync(payload, {
+                secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+                expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION_TIME'),
+            }),
+        ]);
+
+        return { accessToken, refreshToken };
     }
-    async validateUser(email: string, password: string): Promise<any> {
-        // get user from email
-        const user = await this._userService.findByEmail(email);
-        if (user && user.passwordHash && await bcrypt.compare(password, user.passwordHash)) {
-            const { passwordHash, ...result } = user; // we get output in user then what we do is we remove passwordHash from the user and create a new object called as ...result 
-            return result;
-        }
-        return null;
+
+    /**
+     * Hashes and saves the refresh token to the user's record in the database.
+     */
+    private async updateRefreshToken(userId: number, refreshToken: string) {
+        const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
+        await this.userService.setRefreshToken(userId, hashedRefreshToken);
+    }
+
+    async register(createUserDto: CreateUserDto) {
+        // Logic to check for existing user and hash password
+        const existingUser = await this.userService.findByEmail(createUserDto.email);
+        if (existingUser) throw new UnauthorizedException('Email already exists');
+
+        const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
+        const newUser = await this.userService.createUser(createUserDto, hashedPassword);
+
+        // After creating the user, generate tokens and log them in
+        const tokens = await this.getTokens(newUser);
+        await this.updateRefreshToken(newUser.id, tokens.refreshToken);
+
+        const { passwordHash, hashed_refresh_token, ...userPayload } = newUser;
+        return { ...tokens, user: userPayload };
     }
 
     async login(loginDto: LoginDto) {
         const user = await this.validateUser(loginDto.email, loginDto.password);
-        if (!user) {
-            throw new UnauthorizedException('Invalid Credentials')
-        }
-        return this.generateTokenResponse(user);
+        if (!user) throw new UnauthorizedException('Invalid credentials');
+
+        const tokens = await this.getTokens(user);
+        await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+        const { passwordHash, hashed_refresh_token, ...userPayload } = user;
+        return { ...tokens, user: userPayload };
     }
 
-    async register(createUserDto: CreateUserDto) {
-        const { email, username, password } = createUserDto;
-        // check if user exists by email 
-        const existingUserByEmail = await this._userService.findByEmail(email);
-        if (existingUserByEmail) {
-            throw new ConflictException("Email already exists");
-        }
-        // Check if username exists
-        const existingUserByUserName = await this._userService.findByUsername(username);
-        if (existingUserByUserName) {
-            throw new ConflictException("Username already exists")
-        }
-        // Hash the password
-        const salt = await bcrypt.genSalt();
-        const hashedPassword = await bcrypt.hash(password, salt);
-        // Ensure createUser returns the created user with its ID
-        const newUser = await this._userService.createUser(createUserDto, hashedPassword);
-        return this.generateTokenResponse(newUser)
+    async logout(userId: number): Promise<boolean> {
+        const result = await this.userService.setRefreshToken(userId, null);
+        // Safely check the result from the database operation
+        return (result.affected ?? 0) > 0;
     }
-    private generateTokenResponse(user: any) {
-        const { passwordHash, ...userPayload } = user; // Securely remove password hash
-        const payload = { username: userPayload.username, sub: userPayload.id };
-        if (!userPayload.id) {
-            // This check prevents JWT signing errors
-            throw new Error('User ID is missing after creation.');
+
+    async refreshTokens(userId: number, rt: string) {
+        const user = await this.userService.findById(userId);
+        if (!user || !user.hashed_refresh_token) {
+            throw new ForbiddenException('Access Denied');
         }
-        return {
-            access_token: this._jwtService.sign(payload),
-            user: userPayload, // Return the clean user object
-        };
+
+        const rtMatches = await bcrypt.compare(rt, user.hashed_refresh_token);
+        if (!rtMatches) {
+            throw new ForbiddenException('Access Denied');
+        }
+
+        const tokens = await this.getTokens(user);
+        await this.updateRefreshToken(user.id, tokens.refreshToken);
+        return tokens;
+    }
+
+    private async validateUser(email: string, pass: string): Promise<User | null> {
+        const user = await this.userService.findByEmail(email);
+        if (user && user.passwordHash) {
+            const isMatch = await bcrypt.compare(pass, user.passwordHash);
+            if (isMatch) {
+                return user;
+            }
+        }
+        return null;
     }
 }

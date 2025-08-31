@@ -11,11 +11,11 @@ import { User } from './user/user.entity';
     , TypeOrmModule.forRoot({
       // For now hardcoded values are added this has to be solved
       type: 'mysql',
-      host: 'localhost',//process.env.DB_HOST,
-      port: parseInt('3306'), // parseInt(process.env.DB_PORT || '3306', 10),
-      username: 'root', // process.env.DB_USERNAME,
-      password: 'root',//process.env.DB_PASSWORD,
-      database: 'krait_chess',// process.env.DB_DATABASE,
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '3306', 10),
+      username: process.env.DB_USERNAME,
+      password: process.env.DB_PASSWORD,
+      database:  process.env.DB_DATABASE,
       entities: [User], // Add all your entities here
       // synchronize: true, // In development, this syncs your entities with the DB. Disable in production.
     }), AuthModule

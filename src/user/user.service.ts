@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './user.entity';
-import { Repository } from 'typeorm';
+import { Repository, UpdateResult } from 'typeorm';
 import { CreateUserDto } from 'src/auth/dto/create-user.dto';
 
 @Injectable()
@@ -30,5 +30,14 @@ export class UserService {
             isVerified: false,
         });
         return this.usersRepository.save(newUser, { reload: true });;
+    }
+
+    async setRefreshToken(
+        userId: number,
+        refreshToken: string | null,
+    ): Promise<UpdateResult> {
+        return this.usersRepository.update(userId, {
+            hashed_refresh_token: refreshToken,
+        });
     }
 }

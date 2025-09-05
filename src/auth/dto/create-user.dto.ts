@@ -20,4 +20,6 @@ export class CreateUserDto {
     @MinLength(6)
     @MaxLength(100)
     password: string;
+
+    // uuid?: string; // will be generated server side
 }

@@ -1,11 +1,21 @@
-import { Injectable, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ForbiddenException, Logger, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { User } from 'src/user/user.entity';
+import { User } from '../entities/user.entity';
+import { ACCESS_TOKEN_COOKIE, ACCESS_TOKEN_TTL_SECONDS, COOKIE_COMMON, REFRESH_TOKEN_COOKIE, REFRESH_TOKEN_TTL_MS, SESSION_ID_COOKIE } from './constant/auth.constant';
+import { Request, Response } from 'express';
+import * as argon2 from 'argon2';
+import { v4 as uuidv4 } from 'uuid';
+import { randomBytes } from 'crypto';
+import { Repository } from 'typeorm';
+import { RefreshToken } from 'src/entities/refresh-token.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+
+const logger = new Logger('AuthService');
 
 @Injectable()
 export class AuthService {
@@ -13,104 +23,199 @@ export class AuthService {
         private userService: UserService,
         private jwtService: JwtService,
         private configService: ConfigService,
+        @InjectRepository(RefreshToken)
+        private refreshTokenRepository: Repository<RefreshToken>,
     ) { }
 
-    /**
-     * Generates Access and Refresh tokens for a user.
-     */
-    private async getTokens(user: User) {
-        const payload = { username: user.username, sub: user.id };
-
-        const [accessToken, refreshToken] = await Promise.all([
-            // Access Token
-            this.jwtService.signAsync(payload, {
-                secret: this.configService.get<string>('JWT_SECRET'),
-                expiresIn: this.configService.get<string>('JWT_EXPIRATION_TIME'),
-            }),
-            // Refresh Token
-            this.jwtService.signAsync(payload, {
-                secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
-                expiresIn: this.configService.get<string>('JWT_REFRESH_EXPIRATION_TIME'),
-            }),
-        ]);
-
-        return { accessToken, refreshToken };
+    private signAccessToken(user: User) {
+        const payload = { sub: user.id, username: user.username };
+        return this.jwtService.signAsync(payload, {
+            // secret: this.configService.get<string>('JWT_SECRET'),
+            expiresIn: `${ACCESS_TOKEN_TTL_SECONDS}s`,
+        });
     }
 
     /**
-     * Hashes and saves the refresh token to the user's record in the database.
+     * This methods registers a new user using the provided CreateUserDto.
+     * It hashes the password, creates the user, and returns a sanitized user object without sensitive fields.
+     * @param createUserDto The DTO containing user registration details
+     * @returns sanatized user object without sensitive fields
      */
-    private async updateRefreshToken(userId: number, refreshToken: string) {
-        const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
-        await this.userService.setRefreshToken(userId, hashedRefreshToken);
+    async registerLocal(createUserDto: CreateUserDto) {
+        console.log('registering user', createUserDto);
+        const createdUser = await this.userService.createUser(createUserDto);
+        return this.userService.sanitizeForClient(createdUser);
     }
 
-    async register(createUserDto: CreateUserDto) {
-        // Logic to check for existing user and hash password
-        const existingUser = await this.userService.findByEmail(createUserDto.email);
-        if (existingUser) throw new UnauthorizedException('Email already exists');
+    /**
+     * This method is used to validate the user credentials during login 
+     * @param identifier either email or username
+     * @param plainPassword plain password to be verified
+     * @returns returns the user object if valid, null otherwise
+     */
+    async validateLocal(identifier: string, plainPassword: string) {
+        // find user either by email or username and set it into identifier variable
+        // check if its active or has a lock session
+        // compare the hashedpassword with the plain password using argon2 verify
+        // if not match increment the failed login attempts 
+        // if match reset the failed login attempts and return the user object
+        const user = await this.userService.findByEmailOrUsername(identifier);
+        if (!user) return null;
 
-        const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
-        const newUser = await this.userService.createUser(createUserDto, hashedPassword);
-
-        // After creating the user, generate tokens and log them in
-        const tokens = await this.getTokens(newUser);
-        await this.updateRefreshToken(newUser.id, tokens.refreshToken);
-
-        const { passwordHash, hashed_refresh_token, ...userPayload } = newUser;
-        return { ...tokens, user: userPayload };
-    }
-
-    async login(loginDto: LoginDto) {
-        const user = await this.validateUser(loginDto.email, loginDto.password);
-        if (!user) throw new UnauthorizedException('Invalid credentials');
-
-        const tokens = await this.getTokens(user);
-        await this.updateRefreshToken(user.id, tokens.refreshToken);
-
-        const { passwordHash, hashed_refresh_token, ...userPayload } = user;
-        return { ...tokens, user: userPayload };
-    }
-
-    async logout(userId: number): Promise<boolean> {
-        const result = await this.userService.setRefreshToken(userId, null);
-        // Safely check the result from the database operation
-        return (result.affected ?? 0) > 0;
-    }
-
-    async refreshTokens(userId: number, rt: string) {
-        const user = await this.userService.findById(userId);
-        if (!user || !user.hashed_refresh_token) {
-            throw new ForbiddenException('Access Denied');
+        // check active and lock status
+        if (!user.isActive) {
+            throw new BadRequestException('Account is inactive. Please contact support.');
         }
-
-        const rtMatches = await bcrypt.compare(rt, user.hashed_refresh_token);
-        if (!rtMatches) {
-            throw new ForbiddenException('Access Denied');
+        if (await this.userService.isAccountLocked(user)) {
+            throw new BadRequestException(`Account is locked until ${user.lockUntil?.toISOString()}`);
         }
-
-        const tokens = await this.getTokens(user);
-        await this.updateRefreshToken(user.id, tokens.refreshToken);
-        return tokens;
-    }
-
-    private async validateUser(email: string, pass: string): Promise<User | null> {
-        const user = await this.userService.findByEmail(email);
-        if (user && user.passwordHash) {
-            const isMatch = await bcrypt.compare(pass, user.passwordHash);
-            if (isMatch) {
-                return user;
-            }
-        }
-        return null;
-    }
-
-    async validateRefreshToken(userId: number, refreshToken: string) {
-        const user = await this.userService.findById(userId);
-        if (!user || !user.hashed_refresh_token) {
+        if (!user.passwordHash) return null;
+        const ok = await argon2.verify(user.passwordHash, plainPassword);
+        if (!ok) {
+            // increment failed login attempts and possibly lock account
+            await this.userService.incrementFailedLogin(user.id);
             return null;
         }
-        const isValid = await bcrypt.compare(refreshToken, user.hashed_refresh_token);
-        return isValid ? user : null;
+        // success: reset failed counter and return user
+        await this.userService.resetFailedLogin(user.id);
+        return user;
+    }
+
+    async loginLocal(user: User, res: Response, req: Request) {
+        // Check if email is verified or not 
+        if (!user.emailVerified) {
+            throw new BadRequestException('Email not verified');
+        }
+
+        // procceed to create refresh session
+        const sessionId = uuidv4(); // generate a new session ID
+        const refreshPlain = randomBytes(64).toString('hex'); // generate a secure random refresh token
+        const tokenHash = await argon2.hash(refreshPlain);
+        const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+
+        // this has to go to its own refresh token service
+        // save the refresh token in the database
+        const refreshToken = this.refreshTokenRepository.create({
+            sessionId,
+            user,
+            tokenHash,
+            expiresAt,
+            ipAddress: req.ip,
+            userAgent: req.headers['user-agent'] || null,
+        });
+        await this.refreshTokenRepository.save(refreshToken);
+
+        const accessToken = await this.signAccessToken(user);
+        console.log('accessToken', accessToken);
+        const isProd = false; // this.configService.get<string>('NODE_ENV') === 'production';
+
+        // set cookies on respoonse parameters
+        res.cookie(SESSION_ID_COOKIE, sessionId, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
+        res.cookie(REFRESH_TOKEN_COOKIE, refreshPlain, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
+        res.cookie(ACCESS_TOKEN_COOKIE, accessToken, { ...COOKIE_COMMON, secure: isProd, maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000 });
+
+        // update the last login 
+        await this.userService.recordLastLogin(user.id);
+
+        // return access token and user info
+        return {
+            accessToken,
+            user: this.userService.sanitizeForClient(user)
+        }
+    }
+
+    /**
+     * This takes 2 parameters request and response. it checkes the session id and refresh token from the request cookies
+     * if valid, it rotates the refresh token and issues a new access token. it also sets the new cookies in the response
+     * 
+     * @param req Takes the request to get the session id and refresh token cookies
+     * @param res To set the new cookies when rotating the refresh token
+     * @returns void
+     */
+    async refresh(req: Request, res: Response) {
+        const sessionId = req.cookies?.[SESSION_ID_COOKIE];
+        const refreshToken = req.cookies?.[REFRESH_TOKEN_COOKIE];
+        if (!sessionId || !refreshToken) {
+            throw new UnauthorizedException('No session or refresh token');
+        }
+        const session = await this.refreshTokenRepository.findOne({ where: { sessionId }, relations: ['user'] });
+        if (!session) {
+            throw new UnauthorizedException('Invalid session');
+        }
+        if (session.revokedAt) {
+            throw new UnauthorizedException('Session revoked');
+        }
+        if (session.expiresAt < new Date()) {
+            throw new UnauthorizedException('Session expired');
+        }
+
+        // verify the refreshToken with the hashed refresh token in the db 
+        const matches = await argon2.verify(refreshToken, session.tokenHash).catch(() => false);
+        if (!matches) {
+            // revoke the session
+            await this.refreshTokenRepository.update(session.id, { revokedAt: new Date() });
+            throw new UnauthorizedException('Invalid refresh token');
+        }
+        // all good, proceed to rotate the refresh token
+        const newRefreshPlain = randomBytes(64).toString('hex');
+        const newRefreshPlainHash = await argon2.hash(newRefreshPlain);
+        // create new expiry date 
+        session.expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+        // create new refresh token entry 
+        session.tokenHash = newRefreshPlainHash;
+        // rotated from the previous one
+        session.rotatedFrom = session.id;
+        // fill the ipaddress 
+        session.ipAddress = req.ip as string | null;
+        session.userAgent = (req.headers['user-agent'] as string | undefined) ?? null;
+        // save the session
+        this.refreshTokenRepository.save(session);
+
+        const accessToken = this.signAccessToken(session.user);
+        const isProd = false // process.env.NODE_ENV === 'production';
+
+        res.cookie(REFRESH_TOKEN_COOKIE, newRefreshPlain, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
+        res.cookie(ACCESS_TOKEN_COOKIE, accessToken, { ...COOKIE_COMMON, secure: isProd, maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000 });
+        res.cookie(SESSION_ID_COOKIE, sessionId, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
+
+        logger.log(`refresh rotated: user=${session.user.id} session=${sessionId}`);
+        return { accessToken };
+    }
+
+    /**
+     * this method logs out the user from the current session. it will take session id from the request cookies and then update the revoke time
+     * @param req Takes the request to get the session id cookie
+     * @param res To clear the cookies when logging out
+     * @returns void
+     */
+    async logout(req: Request, res: Response) {
+        // first take the session id from the cookie 
+        // update the session id revoke time 
+        // clear the cookies
+        const sessionId = req.cookies?.[SESSION_ID_COOKIE];
+        if (sessionId) {
+            await this.refreshTokenRepository.update({ sessionId }, { revokedAt: new Date() })
+        }
+        const isProd = false; // process.env.NODE_ENV === 'production';
+        res.clearCookie(REFRESH_TOKEN_COOKIE, { ...COOKIE_COMMON, secure: isProd });
+        res.clearCookie(SESSION_ID_COOKIE, { ...COOKIE_COMMON, secure: isProd });
+        res.clearCookie(ACCESS_TOKEN_COOKIE, { ...COOKIE_COMMON, secure: isProd });
+    }
+
+    /**
+     * A user can have multiple active sessions this method revokes all sessions
+     * @param userId The user id whose sessions are to be revoked
+     * @param res To clear the cookies when logging out.
+     * @returns void
+     */
+    async logoutAllSessions(userId: number, res: Response) {
+        // first update all sessions of the user to revoked
+        await this.refreshTokenRepository.update({ user: { id: userId } as any }, { revokedAt: new Date() })
+        if (res) {
+            const isProd = process.env.NODE_ENV === 'production';
+            res.clearCookie(REFRESH_TOKEN_COOKIE, { ...COOKIE_COMMON, secure: isProd });
+            res.clearCookie(SESSION_ID_COOKIE, { ...COOKIE_COMMON, secure: isProd });
+            res.clearCookie(ACCESS_TOKEN_COOKIE, { ...COOKIE_COMMON, secure: isProd });
+        }
     }
 }

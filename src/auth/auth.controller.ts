@@ -6,24 +6,12 @@ import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
 import express from 'express';
 import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
-import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
-import { JwtRefreshGuard } from 'src/auth/guards/jwt-refresh.guard';
-import { JwtPayload } from 'src/types/jwt-payload.type';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
+
 @ApiTags('auth') // Groups endpoints under the "auth" tag in Swagger
 @Controller('auth')
 export class AuthController {
     constructor(private readonly _authService: AuthService, private readonly _configService: ConfigService) {
 
-    }
-    private setRefreshTokenCookie(res: express.Response, token: string) {
-        res.cookie('refresh_token', token, {
-            // "start:dev": "nest start --watch","start:prod": "node dist/main",
-            httpOnly: true,
-            secure: this._configService.get('NODE_ENV') === 'production',
-            path: '/',
-            expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
-        });
     }
     @Post('register')
     @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
@@ -34,9 +22,7 @@ export class AuthController {
         @Body() createUserDto: CreateUserDto,
         @Res({ passthrough: true }) res: express.Response,
     ) {
-        const data = await this._authService.register(createUserDto);
-        this.setRefreshTokenCookie(res, data.refreshToken);
-        return { accessToken: data.accessToken, user: data.user };
+        return await this._authService.registerLocal(createUserDto);
     }
 
     @Post('login')
@@ -45,12 +31,19 @@ export class AuthController {
     @ApiOperation({ summary: 'Log in a user' })
     @ApiResponse({ status: 200, description: 'User successfully logged in and token returned.' })
     @ApiResponse({ status: 401, description: 'Unauthorized. Invalid credentials.' })
-    async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: express.Response) {
-        const data = await this._authService.login(loginDto);
-        this.setRefreshTokenCookie(res, data.refreshToken);
-        return { accessToken: data.accessToken, user: data.user };
+    async login(@Body() loginDto: LoginDto,
+        @Res({ passthrough: true }) res: express.Response,
+        @Req() req: express.Request) {
+        // Validate the user credentials using validateLocal method
+        // then call loginLocal to generate tokens and cookies
+        console.log('loginDto', loginDto);
+        const identifier = loginDto.username || loginDto.email;
+        const user = await this._authService.validateLocal(identifier, loginDto.password);
+        if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+        const data = await this._authService.loginLocal(user, res, req);
+        return res.json(data);
     }
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(JwtAuthGuard) // Might need to reimplement
     @Post('logout')
     @ApiOperation({ summary: 'this is used for logout' })
     @ApiResponse({ status: 200, description: 'User Successfully logged out.' })
@@ -58,19 +51,12 @@ export class AuthController {
     @ApiResponse({ status: 403, description: 'Forbidden. User does not have the necessary permissions.' })
     @ApiResponse({ status: 500, description: 'Internal server error.' })
     async logout(@Req() req, @Res({ passthrough: true }) res: express.Response) {
-        console.log('testing', req.user.id)
-        this._authService.logout(req.user.sub)
-        res.clearCookie('refresh_token', {
-            httpOnly: true,
-            secure: this._configService.get('NODE_ENV') === 'production',
-            path: '/'
-        });
-        return { message: 'Logged out' };
+        this._authService.logout(req, res);
+        return res.json({ ok: true });
     }
 
-    @UseGuards(JwtRefreshGuard)
+    // @UseGuards(JwtRefreshGuard)
     @Post('refresh')
-    @UsePipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }))
     @HttpCode(HttpStatus.OK)
     @ApiOperation({ summary: 'Refresh tokens' })
     @ApiResponse({ status: 200, description: 'New access token generated.' })
@@ -79,7 +65,13 @@ export class AuthController {
         @Res({ passthrough: true }) res: express.Response,
     ) {
         const user = req.user;
-        return this._authService.refreshTokens(user.id, req.body.refreshToken);
-
+        return res.json(this._authService.refresh(req, res));
+    }
+    @UseGuards(JwtAuthGuard)
+    @Post('logout-all')
+    @ApiOperation({ summary: 'logout from all active sessions' })
+    async logoutAll(@Req() req: any, @Res() res: express.Response) {
+        await this._authService.logoutAllSessions(req.user.sub, res);
+        return res.json({ ok: true });
     }
 }

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UserModule } from 'src/user/user.module';
@@ -7,11 +7,17 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config/dist/config.module';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.stratergy';
-import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { UserProfile } from '../entities/user-profile.entity';
+import { User } from 'src/entities/user.entity';
+import { RefreshToken } from 'src/entities/refresh-token.entity';
+// import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 
 
 @Module({
   imports: [
+    TypeOrmModule.forFeature([UserProfile, User, RefreshToken]),
+    forwardRef(() => UserModule),
     UserModule, // Import UserModule to use UserService
     PassportModule,
     JwtModule.registerAsync({ // Register JWT module asynchronously
@@ -27,7 +33,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
   providers: [
     AuthService,
     JwtStrategy,
-    JwtRefreshStrategy,
+    // JwtRefreshStrategy,
   ],
 })
 export class AuthModule { }

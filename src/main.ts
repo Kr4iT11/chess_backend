@@ -9,9 +9,9 @@ async function bootstrap() {
   app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
   app.enableCors({
     origin: 'http://localhost:5173',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    // methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
-  })
+  });
   // --- SWAGGER CONFIGURATION ---
   const config = new DocumentBuilder()
     .setTitle('Krait Chess API')
@@ -29,14 +29,14 @@ async function bootstrap() {
         description: 'Enter JWT token',
         in: 'header',
       },
-      'JWT-auth', // This name will be used to reference the security scheme
+      'JWT-auth',
     )
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document); // This creates the /api endpoint for your docs
+  SwaggerModule.setup('api', app, document);
   // --- END SWAGGER CONFIGURATION ---
   app.use(cookieParser());
-  await app.listen(process.env.PORT ?? 3000);
+  await app.listen(3000, '0.0.0.0');
 }
 bootstrap();

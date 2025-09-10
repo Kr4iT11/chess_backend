@@ -27,10 +27,13 @@ export class AuthService {
         private refreshTokenRepository: Repository<RefreshToken>,
     ) { }
 
-    private signAccessToken(user: User) {
+    private async signAccessToken(user: User) {
         const payload = { sub: user.id, username: user.username };
-        return this.jwtService.signAsync(payload, {
+        console.log(this.configService.get<string>('JWT_SECRET'));
+        return await this.jwtService.signAsync(payload, {
             // secret: this.configService.get<string>('JWT_SECRET'),
+            secret: this.configService.get<string>('JWT_ACCESS_SECRET') || this.configService.get<string>('JWT_SECRET'),
+            // expiresIn: this.configService.get<string>('JWT_ACCESS_EXP') || '3600s',
             expiresIn: `${ACCESS_TOKEN_TTL_SECONDS}s`,
         });
     }
@@ -150,7 +153,11 @@ export class AuthService {
         }
 
         // verify the refreshToken with the hashed refresh token in the db 
-        const matches = await argon2.verify(refreshToken, session.tokenHash).catch(() => false);
+        console.log('verifying refresh token for session', sessionId);
+        console.log('provided refresh token', refreshToken);
+        console.log('stored token hash', session.tokenHash);
+        const matches = await argon2.verify(session.tokenHash, refreshToken).catch(() => false);
+        console.log('refresh token matches', matches);
         if (!matches) {
             // revoke the session
             await this.refreshTokenRepository.update(session.id, { revokedAt: new Date() });
@@ -161,6 +168,7 @@ export class AuthService {
         const newRefreshPlainHash = await argon2.hash(newRefreshPlain);
         // create new expiry date 
         session.expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+        console.log('new expiry date', session.expiresAt.toISOString());
         // create new refresh token entry 
         session.tokenHash = newRefreshPlainHash;
         // rotated from the previous one
@@ -169,16 +177,17 @@ export class AuthService {
         session.ipAddress = req.ip as string | null;
         session.userAgent = (req.headers['user-agent'] as string | undefined) ?? null;
         // save the session
-        this.refreshTokenRepository.save(session);
+        await this.refreshTokenRepository.save(session);
 
-        const accessToken = this.signAccessToken(session.user);
+        const accessToken = await this.signAccessToken(session.user);
         const isProd = false // process.env.NODE_ENV === 'production';
 
         res.cookie(REFRESH_TOKEN_COOKIE, newRefreshPlain, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
         res.cookie(ACCESS_TOKEN_COOKIE, accessToken, { ...COOKIE_COMMON, secure: isProd, maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000 });
         res.cookie(SESSION_ID_COOKIE, sessionId, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
-
+        console.log(res.getHeaders());
         logger.log(`refresh rotated: user=${session.user.id} session=${sessionId}`);
+        console.log('new accessToken', accessToken);
         return { accessToken };
     }
 

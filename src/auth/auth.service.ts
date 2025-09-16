@@ -156,6 +156,7 @@ export class AuthService {
         console.log('verifying refresh token for session', sessionId);
         console.log('provided refresh token', refreshToken);
         console.log('stored token hash', session.tokenHash);
+        console.log('this is argon verify',await argon2.verify(session.tokenHash, refreshToken));
         const matches = await argon2.verify(session.tokenHash, refreshToken).catch(() => false);
         console.log('refresh token matches', matches);
         if (!matches) {

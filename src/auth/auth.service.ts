@@ -12,7 +12,7 @@ import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
-import { RefreshToken } from 'src/entities/RefreshTokens';
+import { RefreshToken } from '../entities/RefreshTokens';
 import { InjectRepository } from '@nestjs/typeorm';
 
 const logger = new Logger('AuthService');

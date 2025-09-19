@@ -2,12 +2,12 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from '../entities/Users';
 import { Repository, UpdateResult } from 'typeorm';
-import { CreateUserDto } from 'src/auth/dto/create-user.dto';
-import { UserProfile } from 'src/entities/UserProfiles';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
-import { LOCK_MINUTES, MAX_FAILED } from 'src/auth/constant/auth.constant';
 import { MAX } from 'class-validator';
+import { UserProfile } from '../entities/UserProfiles';
+import { CreateUserDto } from '../auth/dto/create-user.dto';
+import { LOCK_MINUTES, MAX_FAILED } from '../auth/constant/auth.constant';
 
 @Injectable()
 export class UserService {

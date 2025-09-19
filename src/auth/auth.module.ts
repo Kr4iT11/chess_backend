@@ -8,9 +8,9 @@ import { ConfigModule } from '@nestjs/config/dist/config.module';
 import { ConfigService } from '@nestjs/config';
 import { JwtStrategy } from './strategies/jwt.stratergy';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { UserProfile } from '../entities/user-profile.entity';
-import { User } from 'src/entities/user.entity';
-import { RefreshToken } from 'src/entities/refresh-token.entity';
+import { UserProfile } from '../entities/UserProfiles';
+import { User } from 'src/entities/Users';
+import { RefreshToken } from 'src/entities/RefreshTokens';
 // import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 
 

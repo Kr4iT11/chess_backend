@@ -1,9 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from '../entities/user.entity';
+import { User } from '../entities/Users';
 import { Repository, UpdateResult } from 'typeorm';
 import { CreateUserDto } from 'src/auth/dto/create-user.dto';
-import { UserProfile } from 'src/entities/user-profile.entity';
+import { UserProfile } from 'src/entities/UserProfiles';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { LOCK_MINUTES, MAX_FAILED } from 'src/auth/constant/auth.constant';
@@ -19,7 +19,7 @@ export class UserService {
         return this.usersRepository.findOne({ where: { email } });
     }
 
-    async findById(id: number): Promise<User | null> {
+    async findById(id: string): Promise<User | null> {
         return this.usersRepository.findOne({ where: { id } });
     }
 
@@ -81,7 +81,7 @@ export class UserService {
         };
     }
 
-    async incrementFailedLogin(userId: number) {
+    async incrementFailedLogin(userId: string) {
         // const user = await this.usersRepository.findOne({ where: { id: userId } });
         const user = await this.findById(userId);
         if (!user) return;
@@ -93,7 +93,7 @@ export class UserService {
         await this.usersRepository.save(user);
     }
 
-    async resetFailedLogin(userId: number) {
+    async resetFailedLogin(userId: string) {
         const user = await this.findById(userId);
         if (!user) return;
         await this.usersRepository.update({ id: userId }, { failedLoginCount: 0, lockUntil: null });
@@ -104,7 +104,7 @@ export class UserService {
         return user.lockUntil > new Date();
     }
 
-    async recordLastLogin(userId: number) {
+    async recordLastLogin(userId: string) {
         await this.usersRepository.update({ id: userId }, { lastLoginAt: new Date() });
     }
 }

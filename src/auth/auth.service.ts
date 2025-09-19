@@ -5,14 +5,14 @@ import { UserService } from '../user/user.service';
 import * as bcrypt from 'bcrypt';
 import { LoginDto } from './dto/login.dto';
 import { CreateUserDto } from './dto/create-user.dto';
-import { User } from '../entities/user.entity';
+import { User } from '../entities/Users';
 import { ACCESS_TOKEN_COOKIE, ACCESS_TOKEN_TTL_SECONDS, COOKIE_COMMON, REFRESH_TOKEN_COOKIE, REFRESH_TOKEN_TTL_MS, SESSION_ID_COOKIE } from './constant/auth.constant';
 import { Request, Response } from 'express';
 import * as argon2 from 'argon2';
 import { v4 as uuidv4 } from 'uuid';
 import { randomBytes } from 'crypto';
 import { Repository } from 'typeorm';
-import { RefreshToken } from 'src/entities/refresh-token.entity';
+import { RefreshToken } from 'src/entities/RefreshTokens';
 import { InjectRepository } from '@nestjs/typeorm';
 
 const logger = new Logger('AuthService');

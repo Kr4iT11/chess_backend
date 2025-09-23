@@ -21,30 +21,25 @@ export class SocialService {
   }
   async create(createSocialDto: CreateSocialDto) {
     // first check if the from and to userid should not be same 
-    if (createSocialDto.fromUserId === createSocialDto.toUserId) {
-      throw new BadRequestException('The from userid and to userid cannot be same')
-    }
+    this.checkSimilarUserId(createSocialDto);
     // Check if both userids exist in table or not 
     await this.userExists(createSocialDto);
     // Check if its blocked or not
-    const isUserBlocked = await this.isBlocked(createSocialDto.fromUserId, createSocialDto.toUserId);
-    if (isUserBlocked) {
-      throw new ForbiddenException('You cannot perform this action due to a block.');
-    }
+    await this.isBlocked(createSocialDto.fromUserId, createSocialDto.toUserId);
     // check if they are friends or not
-    const areFriends = await this.areFriends(createSocialDto.fromUserId, createSocialDto.toUserId);
-    if (areFriends) {
-      throw new ConflictException('Already friends'); // Please change the message afterwords
-    }
+    await this.areFriends(createSocialDto.fromUserId, createSocialDto.toUserId);
     // Check if request is pending or not 
-    const requestPending = await this.friendRequestPending(createSocialDto.fromUserId, createSocialDto.toUserId);
-    if (requestPending) {
-      throw new ConflictException('A pending request already exists.');
-    }
+    await this.friendRequestPending(createSocialDto.fromUserId, createSocialDto.toUserId);
 
     // Now insert into friends_request
     await this.sendFriendRequest(createSocialDto);
   }
+  private checkSimilarUserId(createSocialDto: CreateSocialDto) {
+    if (createSocialDto.fromUserId === createSocialDto.toUserId) {
+      throw new BadRequestException('The from userid and to userid cannot be same');
+    }
+  }
+
   private async userExists(createSocialDto: CreateSocialDto) {
     const fromUserIdExists = await this._userService.findById(createSocialDto.fromUserId);
     const toUserId = await this._userService.findById(createSocialDto.toUserId);
@@ -53,23 +48,29 @@ export class SocialService {
     }
   }
 
-  async isBlocked(fromUserId: string, toUserId: string): Promise<boolean> {
+  async isBlocked(fromUserId: string, toUserId: string) {
     const block = await this._blockRepository.findOne({ where: { blockerId: fromUserId, blockedId: toUserId } });
-    return block !== null;
+    if (block) {
+      throw new ForbiddenException('You cannot perform this action due to a block.');
+    }
   }
 
-  async areFriends(fromUserId: string, toUserid: string): Promise<boolean> {
+  async areFriends(fromUserId: string, toUserid: string) {
     // Check friendships table if the friend exists or not 
     const user_a_id = Math.min(parseInt(fromUserId), parseInt(toUserid));
     const user_b_id = Math.max(parseInt(fromUserId), parseInt(toUserid));
     // check if the friendship exists in this or not 
     const isFriend = await this._friendshipRepository.find({ where: { userAId: user_a_id.toString(), userBId: user_b_id.toString() } });
-    return isFriend !== null && isFriend.length > 0;
+    if (isFriend !== null && isFriend.length > 0) {
+      throw new ConflictException('Already friends'); // Please change the message afterwords
+    }
   }
 
-  async friendRequestPending(fromUserId: string, toUserId: string): Promise<boolean> {
+  async friendRequestPending(fromUserId: string, toUserId: string) {
     const result = await this._friendRequestRepository.find({ where: { fromUserId: fromUserId.toString(), toUserId: toUserId.toString(), status: 'pending' } });
-    return result !== null && result.length > 0;
+    if (result !== null && result.length > 0) {
+      throw new ConflictException('A pending request already exists.');
+    }
   }
 
   async sendFriendRequest(createSocialDto: CreateSocialDto): Promise<void> {
@@ -78,6 +79,15 @@ export class SocialService {
     await queryRunner.startTransaction();
     try {
       // please add all the checks before inserting into friend_request
+      this.checkSimilarUserId(createSocialDto);
+      // Check if both userids exist in table or not 
+      await this.userExists(createSocialDto);
+      // Check if its blocked or not
+      await this.isBlocked(createSocialDto.fromUserId, createSocialDto.toUserId);
+      // check if they are friends or not
+      await this.areFriends(createSocialDto.fromUserId, createSocialDto.toUserId);
+      // Check if request is pending or not 
+      await this.friendRequestPending(createSocialDto.fromUserId, createSocialDto.toUserId);
       await queryRunner.manager.save(await this._friendRequestRepository.create({
         fromUserId: createSocialDto.fromUserId,
         toUserId: createSocialDto.toUserId,

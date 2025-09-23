@@ -4,8 +4,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { ConfigService } from '@nestjs/config';
-import express from 'express';
-import { JwtAuthGuard } from 'src/auth/guards/jwt-auth.guard';
+import * as express from 'express';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('auth') // Groups endpoints under the "auth" tag in Swagger
 @Controller('auth')

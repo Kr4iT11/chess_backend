@@ -31,6 +31,7 @@ import { Achievement } from './entities/Achievements';
 import { Avatar } from './entities/Avatars';
 import { Block } from './entities/Blocks';
 import { UserRole } from './entities/UserRoles';
+import { SocialModule } from './social/social.module';
 
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })
@@ -48,7 +49,7 @@ import { UserRole } from './entities/UserRoles';
         UserAchievement, UserRole
       ], // Add all your entities here
       // synchronize: true, // In development, this syncs your entities with the DB. Disable in production.
-    }), AuthModule, UserModule
+    }), AuthModule, UserModule, SocialModule
   ],
   controllers: [AppController],
   providers: [AppService],

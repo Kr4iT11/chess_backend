@@ -19,6 +19,7 @@ async function bootstrap() {
     .setVersion('1.0')
     .addTag('auth', 'Authentication endpoints')
     .addTag('users', 'User management and profiles')
+    .addTag('social', 'This is for social managment')
     // This part is key for authorizing protected endpoints in the UI
     .addBearerAuth(
       {

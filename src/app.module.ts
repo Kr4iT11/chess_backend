@@ -51,7 +51,7 @@ import { SocialModule } from './social/social.module';
       // synchronize: true, // In development, this syncs your entities with the DB. Disable in production.
     }), AuthModule, UserModule, SocialModule
   ],
-  controllers: [AppController],
-  providers: [AppService],
+  // controllers: [AppController],
+  // providers: [AppService],
 })
 export class AppModule { }

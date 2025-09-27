@@ -10,7 +10,7 @@ import { User } from "./Users";
 
 @Index("idx_fr_from_status", ["fromUserId", "status"], {})
 @Index("idx_fr_to_status", ["toUserId", "status"], {})
-@Index("uq_fr_pending_pair", ["fromUserId", "toUserId", "isPending"], {
+@Index("uq_fr_pending_pair_new", ["fromUserId", "toUserId", "isPending"], {
   unique: true,
 })
 @Entity("friend_requests", { schema: "krait_chess" })

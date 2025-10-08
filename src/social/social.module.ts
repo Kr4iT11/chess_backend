@@ -9,10 +9,12 @@ import { UserService } from '../user/user.service';
 import { Block } from '../entities/Blocks';
 import { Friendship } from '../entities/Friendships';
 import { FriendRequest } from '../entities/FriendRequests';
+import { RealtimeService } from '../realtime/realtime.service';
+import { RealtimeModule } from '../realtime/realtime.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, UserProfile, Block, Friendship,FriendRequest]), UserModule
+    TypeOrmModule.forFeature([User, UserProfile, Block, Friendship,FriendRequest]), RealtimeModule
   ],
   controllers: [SocialController],
   providers: [SocialService, UserService],

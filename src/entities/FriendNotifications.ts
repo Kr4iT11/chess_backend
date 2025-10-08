@@ -50,6 +50,13 @@ export class FriendNotification {
   })
   createdAt: Date;
 
+  @Column("timestamp", {
+    name: "read_at",
+    nullable: true,
+    default: null,
+  })
+  readAt: Date;
+
   @ManyToOne(() => User, (users) => users.friendNotifications, {
     onDelete: "CASCADE",
     onUpdate: "NO ACTION",

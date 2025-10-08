@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { Friendship } from '../entities/Friendships';
 import { FriendRequest } from '../entities/FriendRequests';
 import { DataSource } from 'typeorm';
+import { RealtimeService } from '../realtime/realtime.service';
 
 @Injectable()
 export class SocialService {
@@ -14,7 +15,7 @@ export class SocialService {
     private dataSource: DataSource,
     @InjectRepository(Block) private _blockRepository: Repository<Block>,
     @InjectRepository(Friendship) private _friendshipRepository: Repository<Friendship>,
-    @InjectRepository(FriendRequest) private _friendRequestRepository: Repository<FriendRequest>
+    @InjectRepository(FriendRequest) private _friendRequestRepository: Repository<FriendRequest>,
   ) {
 
   }
@@ -93,7 +94,11 @@ export class SocialService {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days in ms
       });
 
-      await queryRunner.manager.save(friendRequest);
+      const result = await queryRunner.manager.save(friendRequest);
+      if (!result) {
+        await queryRunner.rollbackTransaction();
+      }
+      // send and emit notification here
 
       await queryRunner.commitTransaction();
     } catch (error) {

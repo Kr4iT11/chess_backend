@@ -30,10 +30,7 @@ import { RefreshToken } from '../entities/RefreshTokens';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    // JwtRefreshStrategy,
-  ],
+  providers: [AuthService, JwtStrategy],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule { }

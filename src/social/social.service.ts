@@ -16,6 +16,7 @@ export class SocialService {
     @InjectRepository(Block) private _blockRepository: Repository<Block>,
     @InjectRepository(Friendship) private _friendshipRepository: Repository<Friendship>,
     @InjectRepository(FriendRequest) private _friendRequestRepository: Repository<FriendRequest>,
+    private _realtimeService: RealtimeService,
   ) {
 
   }
@@ -96,10 +97,23 @@ export class SocialService {
 
       const result = await queryRunner.manager.save(friendRequest);
       if (!result) {
-        await queryRunner.rollbackTransaction();
+        throw new Error('Friend request could not be saved');
       }
       // send and emit notification here
-
+      const notification = {
+        userId: createSocialDto.toUserId,
+        type: 'friend_request' as const,
+        referenceId: result.id,
+        payload: {
+          toUserId: createSocialDto.toUserId,
+          fromUserId: createSocialDto.fromUserId,
+        }
+      }
+      console.log('notification', notification);
+      const notify = await this._realtimeService.createAndEmitFriendNotification(notification);
+      if (!notify) {  
+        throw new Error('Failed to create and emit friend request notification');
+      }
       await queryRunner.commitTransaction();
     } catch (error) {
       await queryRunner.rollbackTransaction();

@@ -4,6 +4,7 @@ import { CreateSocialDto } from './dto/create-social.dto';
 import { UpdateSocialDto } from './dto/update-social.dto';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { SocialRequestDto } from './dto/social-request.dto';
 
 @UseGuards(JwtAuthGuard)
 @ApiTags('social') // Groups endpoints under the "social" tag in Swagger
@@ -24,8 +25,11 @@ export class SocialController {
     return data;
   }
   @Post('request')
-  async create(@Body() createSocialDto: CreateSocialDto) {
-    console.log('called', createSocialDto);
+  async create(@Request() req,@Body() body: SocialRequestDto) {
+    
+    const createSocialDto = new CreateSocialDto();
+    createSocialDto.fromUserId = req.user.id.toString();
+    createSocialDto.toUserId = body.toUserId.toString();
     return await this.socialService.create(createSocialDto);
   }
   @Post(':id/cancel')

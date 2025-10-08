@@ -14,7 +14,7 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
     this.realtimeService.setGateway(this);
   }
   afterInit(server: any) {
-    console.log(server);
+    // console.log(server);
     console.log('Socket gateway initalized');
   }
   async handleConnection(socket: Socket) {

@@ -107,4 +107,9 @@ export class UserService {
     async recordLastLogin(userId: string) {
         await this.usersRepository.update({ id: userId }, { lastLoginAt: new Date() });
     }
+
+    async findDisplayNameByUserId(userId: string): Promise<string | null> {
+        const profile = await this.userProfileRepository.findOne({ where: { user: { id: userId } } });
+        return profile ? profile.displayName : null;
+    }
 }

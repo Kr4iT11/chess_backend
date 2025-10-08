@@ -105,13 +105,13 @@ export class SocialService {
         type: 'friend_request' as const,
         referenceId: result.id,
         payload: {
-          toUserId: createSocialDto.toUserId,
           fromUserId: createSocialDto.fromUserId,
+          displayName: (await this._userService.findDisplayNameByUserId(createSocialDto.fromUserId)) || 'Unknown'
         }
       }
       console.log('notification', notification);
       const notify = await this._realtimeService.createAndEmitFriendNotification(notification);
-      if (!notify) {  
+      if (!notify) {
         throw new Error('Failed to create and emit friend request notification');
       }
       await queryRunner.commitTransaction();

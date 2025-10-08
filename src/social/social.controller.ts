@@ -26,7 +26,6 @@ export class SocialController {
   }
   @Post('request')
   async create(@Request() req,@Body() body: SocialRequestDto) {
-    
     const createSocialDto = new CreateSocialDto();
     createSocialDto.fromUserId = req.user.id.toString();
     createSocialDto.toUserId = body.toUserId.toString();

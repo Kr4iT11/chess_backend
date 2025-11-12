@@ -109,7 +109,6 @@ export class SocialService {
           displayName: (await this._userService.findDisplayNameByUserId(createSocialDto.fromUserId)) || 'Unknown'
         }
       }
-      console.log('notification', notification);
       const notify = await this._realtimeService.createAndEmitFriendNotification(notification);
       if (!notify) {
         throw new Error('Failed to create and emit friend request notification');
@@ -182,8 +181,7 @@ export class SocialService {
     try {
       const friendRequest = await this._friendRequestRepository.findOne({ where: { id: requestId, status: 'pending' } });
       if (friendRequest === null) {
-        // Either ID is null or undefined, handle accordingly
-        await qr.rollbackTransaction(); // or throw an error, or skip, etc.
+        await qr.rollbackTransaction();
         throw new NotFoundException('No friend requests exists');
       }
       if (friendRequest !== null) {

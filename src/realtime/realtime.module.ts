@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthModule } from '../auth/auth.module';
 import { RealtimeController } from './realtime.controller';
+import { WsAuth } from './ws.jwt.middleware'
 
 @Module({
   imports: [
@@ -22,7 +23,7 @@ import { RealtimeController } from './realtime.controller';
     }),
   ],
   controllers: [RealtimeController],
-  providers: [RealtimeGateway, RealtimeService],
-  exports: [RealtimeService, RealtimeGateway],
+  providers: [RealtimeGateway, RealtimeService, WsAuth],
+  exports: [RealtimeService, RealtimeGateway,WsAuth],
 })
 export class RealtimeModule { }

@@ -4,7 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { JwtService } from '@nestjs/jwt';
-import { WebSocketJwtMiddleware } from './realtime/ws.jwt.middleware';
+import { WsAuth } from './realtime/ws.jwt.middleware';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 
 async function bootstrap() {
@@ -38,16 +38,26 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  const jwtService = app.get(JwtService);
-  const wsAuth = new WebSocketJwtMiddleware(jwtService);
+  // const jwtService = app.get(JwtService);
+  // const wsAuth = new WsAuth(jwtService);
 
   const adapter = new IoAdapter(app);
   app.useWebSocketAdapter(adapter);
+  const server: any = (adapter as any).httpServer?.io ?? (adapter as any).httpServer;
+  const io = server?.io ?? (app as any).getHttpServer()?.io ?? (adapter as any).getServer?.();
 
-  const io = (adapter as any).httpServer?.io ?? (app as any).getHttpServer()?.io;
+  // If you can't find io this way, simpler: import socket.io directly where you create the server.
+  const jwtService = app.get(JwtService);
+  const wsAuth = new WsAuth(jwtService);
 
+  // const io = (adapter as any).httpServer?.io ?? (app as any).getHttpServer()?.io;
+  console.log('io instance:', io);
   if (io) {
     io.use((socket, next) => wsAuth.authenticateSocket(socket, next));
+    console.log('WebSocket middleware for JWT authentication applied.');
+  }
+  else {
+    console.log('WebSocket server not found; JWT authentication middleware not applied.');
   }
   SwaggerModule.setup('api', app, document);
   // --- END SWAGGER CONFIGURATION ---

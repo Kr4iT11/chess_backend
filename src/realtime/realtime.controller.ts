@@ -2,13 +2,14 @@ import { Body, Controller, Get, Param, Post, Query, Req, UseGuards } from "@nest
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
 import { RealtimeService } from "./realtime.service";
+import { RealtimeGateway } from "./realtime.gateway";
 
 @Controller('realtime')
 @UseGuards(JwtAuthGuard)
 @ApiTags('realtime') // Groups endpoints under the "realtime" tag in Swagger
 @ApiBearerAuth('JWT-auth')
 export class RealtimeController {
-    constructor(private readonly _realtimeService: RealtimeService) { }
+    constructor(private readonly _realtimeService: RealtimeService, private readonly realtimeGateway: RealtimeGateway) { }
 
 
     @Get('notifications')
@@ -33,5 +34,22 @@ export class RealtimeController {
             return this._realtimeService.markAllRead(userId);
         }
     }
+
+    @Get('testnotification/:userId')
+    @ApiOperation({ summary: 'Testing notifications' })
+    @ApiResponse({ status: 200 })
+    async testEmit(@Param('userId') userId: string) {
+        console.log('Emitting test notification to user:', userId);
+        this.realtimeGateway.listSocketsInRoom(userId); // for debugging
+        this.realtimeGateway.emitToUser(userId, 'notifications:new', {
+            id: `dev-${Date.now()}`,
+            type: 'friend_request',
+            payload: { displayName: 'Dev Tester' },
+            isRead: false,
+            createdAt: new Date().toISOString()
+        });
+        return { ok: true };
+    }
+
 
 }

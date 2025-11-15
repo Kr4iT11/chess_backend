@@ -29,7 +29,7 @@ export class AuthService {
 
     private async signAccessToken(user: User) {
         const payload = { sub: user.id, username: user.username };
-        console.log(this.configService.get<string>('JWT_SECRET'));
+        // console.log(this.configService.get<string>('JWT_SECRET'));
         return await this.jwtService.signAsync(payload, {
             // secret: this.configService.get<string>('JWT_SECRET'),
             secret: this.configService.get<string>('JWT_ACCESS_SECRET') || this.configService.get<string>('JWT_SECRET'),
@@ -45,7 +45,7 @@ export class AuthService {
      * @returns sanatized user object without sensitive fields
      */
     async registerLocal(createUserDto: CreateUserDto) {
-        console.log('registering user', createUserDto);
+        // console.log('registering user', createUserDto);
         const createdUser = await this.userService.createUser(createUserDto);
         return this.userService.sanitizeForClient(createdUser);
     }
@@ -109,7 +109,7 @@ export class AuthService {
         await this.refreshTokenRepository.save(refreshToken);
 
         const accessToken = await this.signAccessToken(user);
-        console.log('accessToken', accessToken);
+        // console.log('accessToken', accessToken);
         const isProd = false; // this.configService.get<string>('NODE_ENV') === 'production';
 
         // set cookies on respoonse parameters
@@ -153,12 +153,12 @@ export class AuthService {
         }
 
         // verify the refreshToken with the hashed refresh token in the db 
-        console.log('verifying refresh token for session', sessionId);
-        console.log('provided refresh token', refreshToken);
-        console.log('stored token hash', session.tokenHash);
-        console.log('this is argon verify',await argon2.verify(session.tokenHash, refreshToken));
+        // console.log('verifying refresh token for session', sessionId);
+        // console.log('provided refresh token', refreshToken);
+        // console.log('stored token hash', session.tokenHash);
+        // console.log('this is argon verify',await argon2.verify(session.tokenHash, refreshToken));
         const matches = await argon2.verify(session.tokenHash, refreshToken).catch(() => false);
-        console.log('refresh token matches', matches);
+        // console.log('refresh token matches', matches);
         if (!matches) {
             // revoke the session
             await this.refreshTokenRepository.update(session.id, { revokedAt: new Date() });
@@ -169,7 +169,7 @@ export class AuthService {
         const newRefreshPlainHash = await argon2.hash(newRefreshPlain);
         // create new expiry date 
         session.expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
-        console.log('new expiry date', session.expiresAt.toISOString());
+        // console.log('new expiry date', session.expiresAt.toISOString());
         // create new refresh token entry 
         session.tokenHash = newRefreshPlainHash;
         // rotated from the previous one
@@ -186,9 +186,9 @@ export class AuthService {
         res.cookie(REFRESH_TOKEN_COOKIE, newRefreshPlain, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
         res.cookie(ACCESS_TOKEN_COOKIE, accessToken, { ...COOKIE_COMMON, secure: isProd, maxAge: ACCESS_TOKEN_TTL_SECONDS * 1000 });
         res.cookie(SESSION_ID_COOKIE, sessionId, { ...COOKIE_COMMON, secure: isProd, maxAge: REFRESH_TOKEN_TTL_MS });
-        console.log(res.getHeaders());
+        // console.log(res.getHeaders());
         logger.log(`refresh rotated: user=${session.user.id} session=${sessionId}`);
-        console.log('new accessToken', accessToken);
+        // console.log('new accessToken', accessToken);
         return { accessToken };
     }
 

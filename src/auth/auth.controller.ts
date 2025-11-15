@@ -69,20 +69,20 @@ export class AuthController {
         @Req() req,
         @Res({ passthrough: true }) res: express.Response,
     ) {
-        console.log('AuthController - refreshTokens called');
+        // console.log('AuthController - refreshTokens called');
         const sessionId = req.cookies?.['session_id'];
         const refreshToken = req.cookies?.['refresh_token'];
-        console.log('sessionId:', sessionId);
-        console.log('refreshToken:', refreshToken);
-        console.log('req.cookies:', req.cookies);
-        console.log(!sessionId, !refreshToken);
+        // console.log('sessionId:', sessionId);
+        // console.log('refreshToken:', refreshToken);
+        // console.log('req.cookies:', req.cookies);
+        // console.log(!sessionId, !refreshToken);
         if (!sessionId || !refreshToken) {
-            console.log('No session or refresh token found');
+            // console.log('No session or refresh token found');
             throw new UnauthorizedException('No session or refresh token');
         }
         // const user = req.user;
         const result = await this._authService.refresh(req, res);
-        console.log('refresh result', result);
+        // console.log('refresh result', result);
         // Let Nest handle JSON serialization Converting circular structure to JSON
         // --> starting at object
         return result;

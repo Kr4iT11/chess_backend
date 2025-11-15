@@ -33,7 +33,7 @@ export class SocialController {
   }
   @Post(':id/cancel')
   async cancelRequest(@Request() req, @Param('id') id: string) {
-    console.log(req.user.id);
+    // console.log(req.user.id);
     await this.socialService.cancelRequest(req.user.id.toString(), id);
     return `Friend request with ID ${id} has been canceled`;
   }

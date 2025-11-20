@@ -34,6 +34,9 @@ export class FileUpload {
     default: () => "CURRENT_TIMESTAMP",
   })
   createdAt: Date;
+  
+  @Column("bit", { name: "is_profile", nullable: true })
+  isProfile: boolean | null;
 
   @ManyToOne(() => User, (users) => users.fileUploads, {
     onDelete: "SET NULL",

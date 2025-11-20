@@ -51,7 +51,9 @@ export class UserService {
             user: savedUser, // Since userRepository.save with reload: true returns the full entity with ID
             displayName: _createUserDto.username,
             rating: 1200,
-            provisional: true, // default values
+            provisional: true, // default values,
+            firstName: null,
+            lastName: null,
         });
 
         const useProfile = await this.userProfileRepository.save(profile);

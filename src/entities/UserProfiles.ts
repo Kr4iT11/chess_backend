@@ -44,6 +44,12 @@ export class UserProfile {
   })
   updatedAt: Date;
 
+  @Column("varchar", { name: "first_name", nullable: true, length: 50 })
+  firstName: string | null;
+
+  @Column("varchar", { name: "last_name", nullable: true, length: 50 })
+  lastName: string | null;
+
   @OneToOne(() => User, (users) => users.userProfiles, {
     onDelete: "CASCADE",
     onUpdate: "NO ACTION",

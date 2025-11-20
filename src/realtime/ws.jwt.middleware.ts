@@ -26,12 +26,7 @@ export class WsAuth {
             let token = (socket.handshake.auth && (socket.handshake.auth as any).token) || null;
             if (!token) {
                 const rawCookies = socket.handshake.headers?.cookie as string | undefined;
-                console.log('Raw cookies from handshake:', rawCookies);
                 const cookies = this.parseCookies(rawCookies);
-                console.log('[WSAuth] parsed cookies keys =', Object.keys(cookies));
-                console.log('[WSAuth] access_token cookie =', cookies['access_token']);
-                console.log('[WSAuth] token cookie =', cookies['token']);
-                console.log('[WSAuth] session_id cookie =', cookies['session_id']);
                 token = cookies['access_token'] || cookies['token'] || cookies['session'] || null;
                 if (typeof token === 'string' && token.startsWith('Bearer ')) token = token.slice(7);
             }

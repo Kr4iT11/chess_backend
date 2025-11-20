@@ -22,11 +22,6 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnGa
   }
   async handleConnection(socket: Socket) {
     try {
-      console.log('[Gateway] handleConnection socketId=', socket.id);
-      console.log('[Gateway] handshake.auth=', socket.handshake.auth);
-      console.log('[Gateway] handshake.query=', socket.handshake.query);
-      console.log('[Gateway] handshake.headers.cookie=', socket.handshake.headers?.cookie);
-      console.log('Socket connected:', socket.id);
       const userId = (socket as any).userId;
       if (!userId) {
         console.log('Socket connection rejected: no userId');

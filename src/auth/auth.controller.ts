@@ -34,17 +34,10 @@ export class AuthController {
     async login(@Body() loginDto: LoginDto,
         @Res({ passthrough: true }) res: express.Response,
         @Req() req: express.Request) {
-        // Validate the user credentials using validateLocal method
-        // then call loginLocal to generate tokens and cookies
-        // console.log('AuthController - login called');
-        // console.log('loginDto', loginDto);
         const identifier = loginDto.username || loginDto.email;
         const user = await this._authService.validateLocal(identifier, loginDto.password);
         if (!user) return res.status(401).json({ message: 'Invalid credentials' });
         const data = await this._authService.loginLocal(user, res, req);
-        // console.log('login data', data);
-        // Let Nest handle JSON serialization Converting circular structure to JSON
-        // --> starting at object
         return data;
     }
     @UseGuards(JwtAuthGuard) // Might need to reimplement // Commenting it out for testing

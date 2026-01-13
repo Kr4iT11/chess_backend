@@ -33,6 +33,7 @@ import { Block } from './entities/Blocks';
 import { UserRole } from './entities/UserRoles';
 import { SocialModule } from './social/social.module';
 import { RealtimeModule } from './realtime/realtime.module';
+import { GamesModule } from './games/games.module';
 @Module({
   imports: [ConfigModule.forRoot({ isGlobal: true })
     , TypeOrmModule.forRoot({
@@ -49,7 +50,7 @@ import { RealtimeModule } from './realtime/realtime.module';
         UserAchievement, UserRole
       ], // Add all your entities here
       // synchronize: true, // In development, this syncs your entities with the DB. Disable in production.
-    }), AuthModule, UserModule, SocialModule, RealtimeModule
+    }), AuthModule, UserModule, SocialModule, RealtimeModule, GamesModule
   ],
   // controllers: [AppController],
   // providers: [AppService],

@@ -46,6 +46,13 @@ export class GamePlayer {
   })
   result: "win" | "loss" | "draw" | "unknown" | null;
 
+  @Column("tinyint", {
+    name: "is_winner",
+    nullable: true,
+    width: 1,
+    default: () => "'0'",
+  })
+  isWinner: boolean | null;
   @ManyToOne(() => Game, (games) => games.gamePlayers, {
     onDelete: "CASCADE",
     onUpdate: "NO ACTION",

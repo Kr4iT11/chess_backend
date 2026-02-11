@@ -77,4 +77,7 @@ export class Game {
 
   @OneToMany(() => Move, (moves) => moves.game)
   moves: Move[];
+
+  @Column("text", { name: "current_fen", nullable: true })
+  currentFen: string | null;
 }

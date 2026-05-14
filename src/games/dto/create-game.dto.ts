@@ -11,20 +11,20 @@ export class CreateGameDto {
     timeControl: string | 'unlimited'; // for phase 1 only keep 'unlimited'
     @ApiProperty({ example: 'ongoing', description: 'The status of the game (e.g., created, ongoing, finished, aborted)' })
     @IsString()
-    status: string | 'created' | 'ongoing' | 'finished' | 'aborted';
+    status: 'created' | 'ongoing' | 'finished' | 'aborted';
     @ApiProperty({ example: 'created', description: 'The result of the game (e.g., white_win, black_win, draw, ongoing, aborted)' })
     @IsString()
-    result: string | 'white_win' | 'black_win' | 'draw' | 'ongoing' | 'aborted';
+    result: 'white_win' | 'black_win' | 'draw' | 'ongoing' | 'aborted';
     @ApiProperty({ example: 0, description: 'The number of moves made in the game' })
     @IsInt()
     @Min(0)
     moves_count: number | 0;
     @ApiProperty({ example: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', description: 'The current FEN string representing the game state' })
     @IsString()
-    current_fen: string;
-    @ApiProperty({ example: 'public', description: 'The visibility of the game (e.g., public, private)' })
+    current_fen: string | 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    @ApiProperty({ example: 'public', description: 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' })
     @IsString()
-    visiblity: string | 'public' | 'private';
+    visiblity: 'public' | 'private';
     @ApiProperty({ example: '', description: 'started at' })
     started_at: Date | null;
     @ApiProperty({ example: '', description: 'finished at' })

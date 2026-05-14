@@ -18,14 +18,14 @@ export class GamesService {
   async create(createGameDto: CreateGameDto) {
     const newGame = this.gameRepository.create({
       uuid: uuidv4(),
-      variant: 'standard', // for phase 1 only keep 'standard'
-      timeControl: 'unlimited', // for phase 1 only keep 'unlimited'
-      status: 'created', // default value when a game is created
-      result: 'ongoing', // default value when a game is created
-      movesCount: 0,
+      variant: createGameDto.variant, // for phase 1 only keep 'standard'
+      timeControl: createGameDto.timeControl, // for phase 1 only keep 'unlimited'
+      status: createGameDto.status, // default value when a game is created
+      result: createGameDto.result, // default value when a game is created
+      movesCount: createGameDto.moves_count | 0,
       currentFen: createGameDto.current_fen,
       createdAt: new Date(),
-      visibility: 'public', // default value when a game is created
+      visibility: createGameDto.visiblity, // default value when a game is created
       startedAt: null,
       finishedAt: null,
       terminationReason: null,

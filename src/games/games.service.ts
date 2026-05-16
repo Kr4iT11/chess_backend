@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import { Game } from '../entities/Games';
 import { v4 as uuidv4 } from 'uuid';
 import { GamePlayer } from '../entities/GamePlayers';
+import { DataSource } from 'typeorm';
 
 @Injectable()
 export class GamesService {
@@ -13,57 +14,63 @@ export class GamesService {
   constructor(
     @InjectRepository(Game) private gameRepository: Repository<Game>,
     @InjectRepository(GamePlayer) private gamePlayersRepository: Repository<GamePlayer>
+    , private dataSource: DataSource,
   ) { }
   async create(createGameDto: CreateGameDto) {
-    console.log('Received create game request with data:', createGameDto);
-    // check if the user has an ongoing game, if yes then return to that game instead of creating a new one
-    const ongoingGamePlayer = await this.gamePlayersRepository.findOne({
-      where: {
-        userId: createGameDto.userId,
-        result: 'unknown' // assuming 'unknown' indicates an ongoing game
+    return await this.dataSource.transaction(async manager => {
+      // check if user already has an ongoing game
+      const existingPlayer = await manager
+        .getRepository(GamePlayer)
+        .createQueryBuilder('gp')
+        .setLock('pessimistic_write')
+        .where('gp.userId = :userId', {
+          userId: createGameDto.userId,
+        })
+        .andWhere('gp.result = :result', {
+          result: 'unknown',
+        })
+        .getOne();
+      // if on going game, return it;
+      if (existingPlayer) {
+        return await manager.getRepository(Game).findOne({
+          where: {
+            id: existingPlayer.gameId,
+          },
+        });
       }
+
+      // save game
+      const game = manager.getRepository(Game).create({
+        uuid: uuidv4(),
+        variant: createGameDto.variant,
+        timeControl: createGameDto.timeControl,
+        status: createGameDto.status,
+        result: createGameDto.result,
+        movesCount: createGameDto.moves_count ?? 0,
+        currentFen: createGameDto.current_fen,
+        createdAt: new Date(),
+        visibility: createGameDto.visiblity,
+        startedAt: null,
+        finishedAt: null,
+        terminationReason: null,
+      });
+      const savedGame = await manager.getRepository(Game).save(game);
+
+      // save game player
+      const gamePlayer = manager.getRepository(GamePlayer).create({
+        gameId: savedGame.id,
+        userId: createGameDto.userId,
+        side: Math.random() < 0.5 ? 'white' : 'black', // randomly assign white or black
+        isWinner: false,
+        ratingBefore: null,
+        ratingAfter: null,
+        isBot: false,
+        disconnectedAt: null,
+        result: 'unknown',
+      });
+      await manager.getRepository(GamePlayer).save(gamePlayer);
+      return savedGame;
     });
-    console.log('Ongoing game player found:', ongoingGamePlayer);
-    if (ongoingGamePlayer) {
-      // Return the existing ongoing game
-      console.log('Returning existing ongoing game with ID:', ongoingGamePlayer.gameId);
-      return await this.gameRepository.findOne({ where: { id: ongoingGamePlayer.id } });
-    }
-
-
-    const newGame = this.gameRepository.create({
-      uuid: uuidv4(),
-      variant: createGameDto.variant,
-      timeControl: createGameDto.timeControl,
-      status: createGameDto.status,
-      result: createGameDto.result,
-      movesCount: createGameDto.moves_count ?? 0,
-      currentFen: createGameDto.current_fen,
-      createdAt: new Date(),
-      visibility: createGameDto.visiblity,
-      startedAt: null,
-      finishedAt: null,
-      terminationReason: null,
-    });
-
-    const gameResult = await this.gameRepository.save(newGame);
-    if (!gameResult) {
-      throw new Error('Failed to create game');
-    }
-
-    const game_players = this.gamePlayersRepository.create({
-      gameId: gameResult.id,
-      userId: createGameDto.userId,
-      side: Math.random() < 0.5 ? 'white' : 'black', // randomly assign white or black
-      isWinner: false,
-      ratingBefore: null,
-      ratingAfter: null,
-      isBot: false,
-      disconnectedAt: null,
-      result: 'unknown',
-    })
-    await this.gamePlayersRepository.save(game_players);
-    return gameResult
   }
 
   findAll() {

@@ -14,6 +14,7 @@ export class GamesController {
 
   @Post('create')
   async create(@Request() req, @Body() createGameDto: CreateGameDto) {
+    console.warn('CreateGameDto received in controller:', createGameDto);
     createGameDto.userId = req.user.id.toString();
     return this.gamesService.create(createGameDto);
   }

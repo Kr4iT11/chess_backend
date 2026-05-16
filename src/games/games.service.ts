@@ -6,7 +6,6 @@ import { Repository } from 'typeorm';
 import { Game } from '../entities/Games';
 import { v4 as uuidv4 } from 'uuid';
 import { GamePlayer } from '../entities/GamePlayers';
-import { disconnect } from 'process';
 
 @Injectable()
 export class GamesService {
@@ -16,16 +15,32 @@ export class GamesService {
     @InjectRepository(GamePlayer) private gamePlayersRepository: Repository<GamePlayer>
   ) { }
   async create(createGameDto: CreateGameDto) {
+    console.log('Received create game request with data:', createGameDto);
+    // check if the user has an ongoing game, if yes then return to that game instead of creating a new one
+    const ongoingGamePlayer = await this.gamePlayersRepository.findOne({
+      where: {
+        userId: createGameDto.userId,
+        result: 'unknown' // assuming 'unknown' indicates an ongoing game
+      }
+    });
+    console.log('Ongoing game player found:', ongoingGamePlayer);
+    if (ongoingGamePlayer) {
+      // Return the existing ongoing game
+      console.log('Returning existing ongoing game with ID:', ongoingGamePlayer.gameId);
+      return await this.gameRepository.findOne({ where: { id: ongoingGamePlayer.id } });
+    }
+
+
     const newGame = this.gameRepository.create({
       uuid: uuidv4(),
-      variant: createGameDto.variant, // for phase 1 only keep 'standard'
-      timeControl: createGameDto.timeControl, // for phase 1 only keep 'unlimited'
-      status: createGameDto.status, // default value when a game is created
-      result: createGameDto.result, // default value when a game is created
-      movesCount: createGameDto.moves_count | 0,
+      variant: createGameDto.variant,
+      timeControl: createGameDto.timeControl,
+      status: createGameDto.status,
+      result: createGameDto.result,
+      movesCount: createGameDto.moves_count ?? 0,
       currentFen: createGameDto.current_fen,
       createdAt: new Date(),
-      visibility: createGameDto.visiblity, // default value when a game is created
+      visibility: createGameDto.visiblity,
       startedAt: null,
       finishedAt: null,
       terminationReason: null,
@@ -37,15 +52,15 @@ export class GamesService {
     }
 
     const game_players = this.gamePlayersRepository.create({
-      userId: createGameDto.userId,
       gameId: gameResult.id,
-      side: 'white', // for now lets keep it to white, in the future we can add a logic to assign colors
-      isWinner: false, // default value, will be updated at the end of the game
-      ratingBefore: null, // we can fetch the user's rating before the game starts and update it after the game ends
-      ratingAfter: null, // we can calculate the user's rating after the game ends and update it
-      isBot: false, // for now we are not supporting bots, but we can add a logic to assign bots in the future
-      disconnectedAt: null, // we can update this field when a player disconnects from the game
-      result: 'unknown', // default value, will be updated at the end of the game
+      userId: createGameDto.userId,
+      side: Math.random() < 0.5 ? 'white' : 'black', // randomly assign white or black
+      isWinner: false,
+      ratingBefore: null,
+      ratingAfter: null,
+      isBot: false,
+      disconnectedAt: null,
+      result: 'unknown',
     })
     await this.gamePlayersRepository.save(game_players);
     return gameResult
